@@ -37,9 +37,9 @@ configurations = {
     2: dict(
         SEED = 1337, # random seed for reproduce results
 
-        DATA_ROOT = '/home/peter/Project/face.evoLVe.PyTorch/data', # the parent root where your train/val/test data are stored
-        MODEL_ROOT = '/home/peter/Project/face.evoLVe.PyTorch/model', # the root to buffer your checkpoints
-        LOG_ROOT = '/home/peter/Project/face.evoLVe.PyTorch/log', # the root to log your train/val status
+        DATA_ROOT = '/home/projects/bagon/ilanaveh/data', # the parent root where your train/val/test data are stored
+        MODEL_ROOT = '/home/projects/bagon/ilanaveh/face.evoLVe/model', # the root to buffer your checkpoints
+        LOG_ROOT = '/home/projects/bagon/ilanaveh/face.evoLVe/log', # the root to log your train/val status
         BACKBONE_RESUME_ROOT = './', # the root to resume training from a saved checkpoint
         HEAD_RESUME_ROOT = './', # the root to resume training from a saved checkpoint
 
@@ -54,10 +54,10 @@ configurations = {
         BATCH_SIZE = 512,
         DROP_LAST = True, # whether drop the last batch to ensure consistent batch_norm statistics
         LR = 0.1, # initial LR
-        NUM_EPOCH = 125, # total epoch number (use the firt 1/25 epochs to warm up)
+        NUM_EPOCH = 120, # total epoch number (use the firt 1/25 epochs to warm up)  *-- change from 125
         WEIGHT_DECAY = 5e-4, # do not apply to batch_norm parameters
         MOMENTUM = 0.9,
-        STAGES = [35, 65, 95], # epoch stages to decay learning rate
+        STAGES = [30, 60, 90], # epoch stages to decay learning rate  *-- Change from [35, 65, 95]
 
         DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),
         MULTI_GPU = True, # flag to use multiple GPUs; if you choose to train with single GPU, you should first run "export CUDA_VISILE_DEVICES=device_id" to specify the GPU card you want to use
