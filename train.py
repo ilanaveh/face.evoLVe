@@ -8,12 +8,14 @@ from backbone.model_resnet import ResNet_50, ResNet_101, ResNet_152
 from backbone.model_irse import IR_50, IR_101, IR_152, IR_SE_50, IR_SE_101, IR_SE_152
 from head.metrics import ArcFace, CosFace, SphereFace, Am_softmax
 from loss.focal import FocalLoss
-from util.utils import make_weights_for_balanced_classes, get_val_data, separate_irse_bn_paras, separate_resnet_bn_paras, warm_up_lr, schedule_lr, perform_val, get_time, buffer_val, AverageMeter, accuracy
+from util.utils import make_weights_for_balanced_classes, get_val_data, separate_irse_bn_paras, separate_resnet_bn_paras, \
+    warm_up_lr, schedule_lr, perform_val, get_time, buffer_val, AverageMeter, accuracy, save_checkpoint
 
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 import os
-
+from data_processing import blur_transform
+from pathlib import Path
 
 if __name__ == '__main__':
 
@@ -50,6 +52,8 @@ if __name__ == '__main__':
     GPU_ID = cfg['GPU_ID'] # specify your GPU ids
     PIN_MEMORY = cfg['PIN_MEMORY']
     NUM_WORKERS = cfg['NUM_WORKERS']
+    BLUR = cfg['BLUR']  if 'BLUR' in cfg else 0
+
     print("=" * 60)
     print("Overall Configurations:")
     print(cfg)
@@ -57,14 +61,20 @@ if __name__ == '__main__':
 
     writer = SummaryWriter(LOG_ROOT) # writer for buffering intermedium results
 
-    train_transform = transforms.Compose([ # refer to https://pytorch.org/docs/stable/torchvision/transforms.html for more build-in online data augmentation
+    post_blur_transforms = [ # refer to https://pytorch.org/docs/stable/torchvision/transforms.html for more build-in online data augmentation
         transforms.Resize([int(128 * INPUT_SIZE[0] / 112), int(128 * INPUT_SIZE[0] / 112)]), # smaller side resized
         transforms.RandomCrop([INPUT_SIZE[0], INPUT_SIZE[1]]),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize(mean = RGB_MEAN,
                              std = RGB_STD),
-    ])
+    ]
+
+    if BLUR:
+        blur_trans = blur_transform.GaussianBlur(BLUR)
+        train_transform = transforms.Compose([blur_trans] + post_blur_transforms)
+    else:
+        train_transform = transforms.Compose(post_blur_transforms)
 
     dataset_train = datasets.ImageFolder(os.path.join(DATA_ROOT, 'imgs'), train_transform)
 
@@ -96,7 +106,7 @@ if __name__ == '__main__':
                      'IR_SE_152': IR_SE_152(INPUT_SIZE)}
     BACKBONE = BACKBONE_DICT[BACKBONE_NAME]
     print("=" * 60)
-    print(BACKBONE)
+    # print(BACKBONE)
     print("{} Backbone Generated".format(BACKBONE_NAME))
     print("=" * 60)
 
@@ -106,7 +116,7 @@ if __name__ == '__main__':
                  'Am_softmax': Am_softmax(in_features = EMBEDDING_SIZE, out_features = NUM_CLASS, device_id = GPU_ID)}
     HEAD = HEAD_DICT[HEAD_NAME]
     print("=" * 60)
-    print(HEAD)
+    # print(HEAD)
     print("{} Head Generated".format(HEAD_NAME))
     print("=" * 60)
 
@@ -142,16 +152,24 @@ if __name__ == '__main__':
     print("=" * 60)
 
     # optionally resume from a checkpoint
+    resume_from_checkpoint = False
     if BACKBONE_RESUME_ROOT and HEAD_RESUME_ROOT:
+        assert BACKBONE_RESUME_ROOT == HEAD_RESUME_ROOT  # ToDo: this is temporary -- change to only one root.
+        Path(BACKBONE_RESUME_ROOT).mkdir(parents=False, exist_ok=True)  # create if doesn't exist, alert if parent doesn't exist.
         print("=" * 60)
-        if os.path.isfile(BACKBONE_RESUME_ROOT) and os.path.isfile(HEAD_RESUME_ROOT):
-            print("Loading Backbone Checkpoint '{}'".format(BACKBONE_RESUME_ROOT))
-            BACKBONE.load_state_dict(torch.load(BACKBONE_RESUME_ROOT))
-            print("Loading Head Checkpoint '{}'".format(HEAD_RESUME_ROOT))
-            HEAD.load_state_dict(torch.load(HEAD_RESUME_ROOT))
+        resume_checkpoint_file = os.path.join(BACKBONE_RESUME_ROOT, 'checkpoint.pth.tar')
+        if os.path.isfile(resume_checkpoint_file):
+            resume_from_checkpoint = True
+            print("Loading Checkpoint '{}'".format(resume_checkpoint_file))
+            checkpoint = torch.load(resume_checkpoint_file)
+            print("Loading BACKBONE state-dict from checkpoint.")
+            BACKBONE.load_state_dict(checkpoint['backbone_state_dict'])
+            # print("Loading HEAD state-dict from checkpoint.")
+            # HEAD.load_state_dict(checkpoint['head_state_dict'])
+            start_epoch = checkpoint['epoch']
         else:
-            print("No Checkpoint Found at '{}' and '{}'. Please Have a Check or Continue to Train from Scratch".format(BACKBONE_RESUME_ROOT, HEAD_RESUME_ROOT))
-        print("=" * 60)
+            print("No Checkpoint Found at '{}'. Please Have a Check or Continue to Train from Scratch".format(BACKBONE_RESUME_ROOT))
+            start_epoch = 0
 
     if MULTI_GPU:
         # multi-GPU setting
@@ -161,6 +179,12 @@ if __name__ == '__main__':
         # single-GPU setting
         BACKBONE = BACKBONE.to(DEVICE)
 
+    # Load optimizer state_dict after setting model's device:
+    if resume_from_checkpoint:
+        print("Loading optimizer state-dict from checkpoint")
+        OPTIMIZER.load_state_dict(checkpoint['optimizer'])
+        print("Continuing from epoch {}".format(start_epoch))
+    print("=" * 60)
 
     #======= train & validation & save checkpoint =======#
     DISP_FREQ = len(train_loader) // 100 # frequency to display training loss & acc
@@ -169,7 +193,7 @@ if __name__ == '__main__':
     NUM_BATCH_WARM_UP = len(train_loader) * NUM_EPOCH_WARM_UP  # use the first 1/25 epochs to warm up
     batch = 0  # batch index
 
-    for epoch in range(NUM_EPOCH): # start training process
+    for epoch in range(start_epoch, NUM_EPOCH): # start training process
         
         if epoch == STAGES[0]: # adjust LR for each training stage after warm up, you can also choose to adjust LR manually (with slight modification) once plaueau observed
             schedule_lr(OPTIMIZER)
@@ -256,8 +280,19 @@ if __name__ == '__main__':
 
         # save checkpoints per epoch
         if MULTI_GPU:
-            torch.save(BACKBONE.module.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, batch, get_time())))
-            torch.save(HEAD.state_dict(), os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, batch, get_time())))
+            backbone_state_dict = BACKBONE.module.state_dict()
+            # torch.save(BACKBONE.module.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, batch, get_time())))
+            # torch.save(HEAD.state_dict(), os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, batch, get_time())))
         else:
-            torch.save(BACKBONE.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, batch, get_time())))
-            torch.save(HEAD.state_dict(), os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, batch, get_time())))
+            backbone_state_dict = BACKBONE.state_dict()
+            # torch.save(BACKBONE.state_dict(), os.path.join(MODEL_ROOT, "Backbone_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, batch, get_time())))
+            # torch.save(HEAD.state_dict(), os.path.join(MODEL_ROOT, "Head_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(HEAD_NAME, epoch + 1, batch, get_time())))
+
+        head_state_dict = HEAD.state_dict()
+        save_checkpoint_file_name = resume_checkpoint_file if BACKBONE_RESUME_ROOT else 'checkpoint.pth.tar'
+        save_checkpoint({
+            'epoch': epoch + 1,
+            'backbone_state_dict': backbone_state_dict,
+            'head_state_dict': head_state_dict,
+            'optimizer': OPTIMIZER.state_dict(),
+        }, filename=save_checkpoint_file_name)
