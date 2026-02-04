@@ -106,7 +106,8 @@ class ArcFace(nn.Module):
                 temp_x = x.cuda(self.device_id[i])
                 weight = sub_weights[i].cuda(self.device_id[i])
                 cosine = torch.cat((cosine, F.linear(F.normalize(temp_x), F.normalize(weight)).cuda(self.device_id[0])), dim=1) 
-        sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
+        # sine = torch.sqrt(1.0 - torch.pow(cosine, 2))  # According to github issue #117: Change this line to 'sine = torch.sqrt(torch.clamp((1.0 - torch.pow(cosine, 2)), 1e-9, 1))'
+        sine = torch.sqrt(torch.clamp((1.0 - torch.pow(cosine, 2)), 1e-9, 1))
         phi = cosine * self.cos_m - sine * self.sin_m
         if self.easy_margin:
             phi = torch.where(cosine > 0, phi, cosine)
