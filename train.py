@@ -16,11 +16,19 @@ from tqdm import tqdm
 import os
 from data_processing import blur_transform
 from pathlib import Path
+import argparse
+import math
 
-if __name__ == '__main__':
 
+def get_args_parser():
+    parser = argparse.ArgumentParser('Face.evoLVe training script', add_help=False)
+    parser.add_argument('--cfg', default=2, type=int)
+    return parser
+
+
+def main(args):
     #======= hyperparameters & data loaders =======#
-    cfg = configurations[2]
+    cfg = configurations[args.cfg]
 
     SEED = cfg['SEED'] # random seed for reproduce results
     torch.manual_seed(SEED)
@@ -55,7 +63,7 @@ if __name__ == '__main__':
     BLUR = cfg['BLUR']  if 'BLUR' in cfg else 0
 
     print("=" * 60)
-    print("Overall Configurations:")
+    print("Overall Configurations (config {}):".format(args.cfg))
     print(cfg)
     print("=" * 60)
 
@@ -93,16 +101,15 @@ if __name__ == '__main__':
 
     # lfw, cfp_ff, cfp_fp, agedb, calfw, cplfw, vgg2_fp, lfw_issame, cfp_ff_issame, cfp_fp_issame, agedb_issame, calfw_issame, cplfw_issame, vgg2_fp_issame = get_val_data(DATA_ROOT)
 
-
     #======= model & loss & optimizer =======#
-    BACKBONE_DICT = {'ResNet_50': ResNet_50(INPUT_SIZE), 
-                     'ResNet_101': ResNet_101(INPUT_SIZE), 
+    BACKBONE_DICT = {'ResNet_50': ResNet_50(INPUT_SIZE),
+                     'ResNet_101': ResNet_101(INPUT_SIZE),
                      'ResNet_152': ResNet_152(INPUT_SIZE),
-                     'IR_50': IR_50(INPUT_SIZE), 
-                     'IR_101': IR_101(INPUT_SIZE), 
+                     'IR_50': IR_50(INPUT_SIZE),
+                     'IR_101': IR_101(INPUT_SIZE),
                      'IR_152': IR_152(INPUT_SIZE),
-                     'IR_SE_50': IR_SE_50(INPUT_SIZE), 
-                     'IR_SE_101': IR_SE_101(INPUT_SIZE), 
+                     'IR_SE_50': IR_SE_50(INPUT_SIZE),
+                     'IR_SE_101': IR_SE_101(INPUT_SIZE),
                      'IR_SE_152': IR_SE_152(INPUT_SIZE)}
     BACKBONE = BACKBONE_DICT[BACKBONE_NAME]
     print("=" * 60)
@@ -120,7 +127,7 @@ if __name__ == '__main__':
     print("{} Head Generated".format(HEAD_NAME))
     print("=" * 60)
 
-    LOSS_DICT = {'Focal': FocalLoss(), 
+    LOSS_DICT = {'Focal': FocalLoss(),
                  'Softmax': nn.CrossEntropyLoss(),
                  # 'AdaCos': AdaCos(),
                  # 'AdaM_Softmax': AdaM_Softmax() ,
@@ -131,7 +138,7 @@ if __name__ == '__main__':
                  # 'MagFace' :  MagFace(),
                  # 'NPCFace' :  MV_Softmax.py(),
                  # 'SST_Prototype': SST_Prototype(),
-                 
+
                  }
     LOSS = LOSS_DICT[LOSS_NAME]
     print("=" * 60)
@@ -183,18 +190,21 @@ if __name__ == '__main__':
     if resume_from_checkpoint:
         print("Loading optimizer state-dict from checkpoint")
         OPTIMIZER.load_state_dict(checkpoint['optimizer'])
-        print("Continuing from epoch {}".format(start_epoch))
+        print("Continuing from epoch {}".format(start_epoch + 1))
     print("=" * 60)
 
     #======= train & validation & save checkpoint =======#
     DISP_FREQ = len(train_loader) // 100 # frequency to display training loss & acc
+    print(f"Display progress every {DISP_FREQ} batches.")
 
     NUM_EPOCH_WARM_UP = NUM_EPOCH // 25  # use the first 1/25 epochs to warm up
     NUM_BATCH_WARM_UP = len(train_loader) * NUM_EPOCH_WARM_UP  # use the first 1/25 epochs to warm up
     batch = 0  # batch index
 
     for epoch in range(start_epoch, NUM_EPOCH): # start training process
-        
+
+        print(f"=> Epoch {epoch + 1}")
+
         if epoch == STAGES[0]: # adjust LR for each training stage after warm up, you can also choose to adjust LR manually (with slight modification) once plaueau observed
             schedule_lr(OPTIMIZER)
         if epoch == STAGES[1]:
@@ -213,6 +223,7 @@ if __name__ == '__main__':
 
             if (epoch + 1 <= NUM_EPOCH_WARM_UP) and (batch + 1 <= NUM_BATCH_WARM_UP): # adjust LR for each training batch during warm up
                 warm_up_lr(batch + 1, NUM_BATCH_WARM_UP, LR, OPTIMIZER)
+                # print(f"LR = {OPTIMIZER.param_groups[0]['lr']:.1g}")
 
             # compute output
             inputs = inputs.to(DEVICE)
@@ -220,6 +231,9 @@ if __name__ == '__main__':
             features = BACKBONE(inputs)
             outputs = HEAD(features, labels)
             loss = LOSS(outputs, labels)
+
+            if math.isnan(loss):
+                print("loss is nan")
 
             # measure accuracy and record loss
             prec1, prec5 = accuracy(outputs.data, labels, topk = (1, 5))
@@ -231,15 +245,17 @@ if __name__ == '__main__':
             OPTIMIZER.zero_grad()
             loss.backward()
             OPTIMIZER.step()
-            
+
             # dispaly training loss & acc every DISP_FREQ
             if ((batch + 1) % DISP_FREQ == 0) and batch != 0:
                 print("=" * 60)
                 print('Epoch {}/{} Batch {}/{}\t'
+                      'LR {lr:.1g}\t'
                       'Training Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                       'Training Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                       'Training Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                    epoch + 1, NUM_EPOCH, batch + 1, len(train_loader) * NUM_EPOCH, loss = losses, top1 = top1, top5 = top5))
+                    epoch + 1, NUM_EPOCH, batch + 1, len(train_loader) * NUM_EPOCH, lr=OPTIMIZER.param_groups[0]['lr'],
+                    loss=losses, top1=top1, top5=top5))
                 print("=" * 60)
 
             batch += 1 # batch index
@@ -296,3 +312,9 @@ if __name__ == '__main__':
             'head_state_dict': head_state_dict,
             'optimizer': OPTIMIZER.state_dict(),
         }, filename=save_checkpoint_file_name)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser('Face.evoLVe training script', parents=[get_args_parser()])
+    args = parser.parse_args()
+    main(args)
