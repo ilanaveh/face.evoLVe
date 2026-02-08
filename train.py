@@ -63,6 +63,8 @@ def main(args):
     BLUR = cfg['BLUR']  if 'BLUR' in cfg else 0
 
     print("=" * 60)
+    print(f"{LOG_ROOT.split('/')[-1]}")
+    print("=" * 60)
     print("Overall Configurations (config {}):".format(args.cfg))
     print(cfg)
     print("=" * 60)
@@ -171,8 +173,8 @@ def main(args):
             checkpoint = torch.load(resume_checkpoint_file)
             print("Loading BACKBONE state-dict from checkpoint.")
             BACKBONE.load_state_dict(checkpoint['backbone_state_dict'])
-            # print("Loading HEAD state-dict from checkpoint.")
-            # HEAD.load_state_dict(checkpoint['head_state_dict'])
+            print("Loading HEAD state-dict from checkpoint.")
+            HEAD.load_state_dict(checkpoint['head_state_dict'])
             start_epoch = checkpoint['epoch']
         else:
             print("No Checkpoint Found at '{}'. Please Have a Check or Continue to Train from Scratch".format(BACKBONE_RESUME_ROOT))
