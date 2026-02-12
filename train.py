@@ -60,7 +60,7 @@ def main(args):
     GPU_ID = cfg['GPU_ID'] # specify your GPU ids
     PIN_MEMORY = cfg['PIN_MEMORY']
     NUM_WORKERS = cfg['NUM_WORKERS']
-    BLUR = cfg['BLUR']  if 'BLUR' in cfg else 0
+    BLUR = cfg['BLUR'] if 'BLUR' in cfg else 0
 
     print("=" * 60)
     print(f"{LOG_ROOT.split('/')[-1]}")
@@ -81,9 +81,11 @@ def main(args):
     ]
 
     if BLUR:
+        print(f"Using blur {BLUR}.")
         blur_trans = blur_transform.GaussianBlur(BLUR)
         train_transform = transforms.Compose([blur_trans] + post_blur_transforms)
     else:
+        print("Not using blur.")
         train_transform = transforms.Compose(post_blur_transforms)
 
     dataset_train = datasets.ImageFolder(os.path.join(DATA_ROOT, 'imgs'), train_transform)
