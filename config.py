@@ -57,7 +57,7 @@ configurations = {
         GPU_ID = [0, 1, 2, 3], # specify your GPU ids
         PIN_MEMORY = True,
         NUM_WORKERS = 0,
-),
+    ),
 
     2: dict(
         SEED = 1337, # random seed for reproduce results
@@ -90,7 +90,7 @@ configurations = {
         PIN_MEMORY = True,
         NUM_WORKERS = 0,
         BLUR = cfg_blurs[2],
-),
+    ),
 
     3: dict(
         SEED = 1337, # random seed for reproduce results
@@ -123,7 +123,7 @@ configurations = {
         PIN_MEMORY = True,
         NUM_WORKERS = 0,
         BLUR = cfg_blurs[3],
-),
+    ),
 
     4: dict(
         SEED = 1337, # random seed for reproduce results
@@ -156,7 +156,7 @@ configurations = {
         PIN_MEMORY = True,
         NUM_WORKERS = 0,
         BLUR = cfg_blurs[4],
-),
+    ),
 
     5: dict(
         SEED = 1337, # random seed for reproduce results
@@ -189,7 +189,7 @@ configurations = {
         PIN_MEMORY = True,
         NUM_WORKERS = 0,
         BLUR = cfg_blurs[5],
-),
+    ),
 
     6: dict(
         SEED = 1337, # random seed for reproduce results
@@ -222,7 +222,7 @@ configurations = {
         PIN_MEMORY = True,
         NUM_WORKERS = 0,
         BLUR = cfg_blurs[6],
-),
+    ),
 
     7: dict(
         SEED = 1337, # random seed for reproduce results
@@ -255,7 +255,7 @@ configurations = {
         PIN_MEMORY = True,
         NUM_WORKERS = 0,
         BLUR = cfg_blurs[7],
-),
+    ),
 
     8: dict(
         SEED = 1337, # random seed for reproduce results
@@ -288,7 +288,7 @@ configurations = {
         PIN_MEMORY = True,
         NUM_WORKERS = 0,
         BLUR = cfg_blurs[8],
-),
+    ),
 
     9: dict(
         SEED = 1337, # random seed for reproduce results
@@ -321,7 +321,7 @@ configurations = {
         PIN_MEMORY = True,
         NUM_WORKERS = 0,
         BLUR = cfg_blurs[9],
-),
+    ),
 
     10: dict(
         SEED = 1337, # random seed for reproduce results
@@ -354,7 +354,7 @@ configurations = {
         PIN_MEMORY = True,
         NUM_WORKERS = 0,
         BLUR = cfg_blurs[10],
-),
+    ),
 
     11: dict(
         SEED = 1337, # random seed for reproduce results
@@ -453,7 +453,7 @@ configurations = {
         PIN_MEMORY = True,
         NUM_WORKERS = 0,
         BLUR = cfg_blurs[13],
-),
+    ),
 
     14: dict(
         SEED = 1337, # random seed for reproduce results
@@ -486,7 +486,7 @@ configurations = {
         PIN_MEMORY = True,
         NUM_WORKERS = 2,
         BLUR = cfg_blurs[14],
-),
+    ),
 
     15: dict(
         SEED = 1337, # random seed for reproduce results
@@ -652,7 +652,5 @@ configurations = {
         NUM_WORKERS = 2,
         BLUR = cfg_blurs[19],
     )
-
-
 
 }
