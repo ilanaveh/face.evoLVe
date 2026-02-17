@@ -61,6 +61,7 @@ def main(args):
     PIN_MEMORY = cfg['PIN_MEMORY']
     NUM_WORKERS = cfg['NUM_WORKERS']
     BLUR = cfg['BLUR'] if 'BLUR' in cfg else 0
+    PRINT_COSINE = cfg['PRINT_COSINE'] if 'PRINT_COSINE' in cfg else False
 
     print("=" * 60)
     print(f"{LOG_ROOT.split('/')[-1]}")
@@ -233,11 +234,12 @@ def main(args):
             inputs = inputs.to(DEVICE)
             labels = labels.to(DEVICE).long()
             features = BACKBONE(inputs)
-            outputs = HEAD(features, labels)
+            outputs = HEAD(features, labels, print_cosine=(PRINT_COSINE and (epoch == start_epoch)))
             loss = LOSS(outputs, labels)
 
             if math.isnan(loss):
                 print("loss is nan")
+                PRINT_COSINE = False  # stop printing when hitting nan.
 
             # measure accuracy and record loss
             prec1, prec5 = accuracy(outputs.data, labels, topk = (1, 5))
