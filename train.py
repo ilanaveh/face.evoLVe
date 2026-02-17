@@ -126,11 +126,20 @@ def main(args):
                  'CosFace': CosFace(in_features = EMBEDDING_SIZE, out_features = NUM_CLASS, device_id = GPU_ID),
                  'SphereFace': SphereFace(in_features = EMBEDDING_SIZE, out_features = NUM_CLASS, device_id = GPU_ID),
                  'Am_softmax': Am_softmax(in_features = EMBEDDING_SIZE, out_features = NUM_CLASS, device_id = GPU_ID)}
+    change_params = {}
+    if 'MARGIN' in cfg:
+        print(f"Changing head margin to {cfg['MARGIN']} (default: 0.5)")
+        change_params['m'] = cfg['MARGIN']
+    if 'SCALE' in cfg:
+        print(f"Changing head scale to {cfg['SCALE']} (default: 64)")
+        change_params['s'] = cfg['SCALE']
+    if len(change_params) > 0:
+        HEAD_DICT['ArcFace'] = ArcFace(in_features = EMBEDDING_SIZE, out_features = NUM_CLASS, device_id = GPU_ID,
+                                       **change_params)
     HEAD = HEAD_DICT[HEAD_NAME]
     print("=" * 60)
     # print(HEAD)
     print("{} Head Generated".format(HEAD_NAME))
-    print("=" * 60)
 
     LOSS_DICT = {'Focal': FocalLoss(),
                  'Softmax': nn.CrossEntropyLoss(),
@@ -149,7 +158,6 @@ def main(args):
     print("=" * 60)
     print(LOSS)
     print("{} Loss Generated".format(LOSS_NAME))
-    print("=" * 60)
 
     if BACKBONE_NAME.find("IR") >= 0:
         backbone_paras_only_bn, backbone_paras_wo_bn = separate_irse_bn_paras(BACKBONE) # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
@@ -161,7 +169,6 @@ def main(args):
     print("=" * 60)
     print(OPTIMIZER)
     print("Optimizer Generated")
-    print("=" * 60)
 
     # optionally resume from a checkpoint
     resume_from_checkpoint = False
