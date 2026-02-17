@@ -92,7 +92,7 @@ class ArcFace(nn.Module):
         self.th = math.cos(math.pi - m)
         self.mm = math.sin(math.pi - m) * m
 
-    def forward(self, input, label):
+    def forward(self, input, label, print_cosine=False):
         # --------------------------- cos(theta) & phi(theta) ---------------------------
         if self.device_id == None:
             cosine = F.linear(F.normalize(input), F.normalize(self.weight))
@@ -107,7 +107,17 @@ class ArcFace(nn.Module):
                 weight = sub_weights[i].cuda(self.device_id[i])
                 cosine = torch.cat((cosine, F.linear(F.normalize(temp_x), F.normalize(weight)).cuda(self.device_id[0])), dim=1) 
         # sine = torch.sqrt(1.0 - torch.pow(cosine, 2))  # According to github issue #117: Change this line to 'sine = torch.sqrt(torch.clamp((1.0 - torch.pow(cosine, 2)), 1e-9, 1))'
-        sine = torch.sqrt(torch.clamp((1.0 - torch.pow(cosine, 2)), 1e-9, 1))
+        if print_cosine:
+            invalid = (cosine > 1) | (cosine < -1)
+            if invalid.any():
+                print("COSINE OUT OF RANGE [-1, 1]:",
+                      cosine.min().item(),
+                      cosine.max().item(),
+                      invalid.float().mean().item())
+
+            sine = torch.sqrt(1.0 - torch.pow(cosine, 2))
+        else:
+            sine = torch.sqrt(torch.clamp((1.0 - torch.pow(cosine, 2)), 1e-9, 1))
         phi = cosine * self.cos_m - sine * self.sin_m
         if self.easy_margin:
             phi = torch.where(cosine > 0, phi, cosine)
