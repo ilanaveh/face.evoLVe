@@ -276,8 +276,6 @@ def main(args):
         # training statistics per epoch (buffer for visualization)
         epoch_loss = losses.avg
         epoch_acc = top1.avg
-        writer.add_scalar("Training_Loss", epoch_loss, epoch + 1)
-        writer.add_scalar("Training_Accuracy", epoch_acc, epoch + 1)
         print("=" * 60)
         print('Epoch: {}/{}\t'
               'Training Loss {loss.val:.4f} ({loss.avg:.4f})\t'
@@ -305,7 +303,15 @@ def main(args):
         # accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp = perform_val(MULTI_GPU, DEVICE, EMBEDDING_SIZE, BATCH_SIZE, BACKBONE, vgg2_fp, vgg2_fp_issame)
         # buffer_val(writer, "VGGFace2_FP", accuracy_vgg2_fp, best_threshold_vgg2_fp, roc_curve_vgg2_fp, epoch + 1)
         # print("Epoch {}/{}, Evaluation: LFW Acc: {}, CFP_FF Acc: {}, CFP_FP Acc: {}, AgeDB Acc: {}, CALFW Acc: {}, CPLFW Acc: {}, VGG2_FP Acc: {}".format(epoch + 1, NUM_EPOCH, accuracy_lfw, accuracy_cfp_ff, accuracy_cfp_fp, accuracy_agedb, accuracy_calfw, accuracy_cplfw, accuracy_vgg2_fp))
-        print("=" * 60)
+
+        # Add watchdog:
+        if epoch_acc == 0:
+            print(f"Training failed (epoch {epoch + 1}) => Aborting job without saving checkpoint.")
+            print("=" * 60)
+            return
+
+        writer.add_scalar("Training_Loss", epoch_loss, epoch + 1)
+        writer.add_scalar("Training_Accuracy", epoch_acc, epoch + 1)
 
         # save checkpoints per epoch
         if MULTI_GPU:
@@ -325,6 +331,7 @@ def main(args):
             'head_state_dict': head_state_dict,
             'optimizer': OPTIMIZER.state_dict(),
         }, filename=save_checkpoint_file_name)
+        print("=" * 60)
 
 
 if __name__ == '__main__':
