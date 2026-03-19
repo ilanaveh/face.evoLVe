@@ -61,6 +61,7 @@ def main(args):
     PIN_MEMORY = cfg['PIN_MEMORY']
     NUM_WORKERS = cfg['NUM_WORKERS']
     BLUR = cfg['BLUR'] if 'BLUR' in cfg else 0
+    BLUR_MAX = cfg['BLUR_MAX'] if 'BLUR_MAX' in cfg else 0
     PRINT_COSINE = cfg['PRINT_COSINE'] if 'PRINT_COSINE' in cfg else False
 
     print("=" * 60)
@@ -84,6 +85,10 @@ def main(args):
     if BLUR:
         print(f"Using blur {BLUR}.")
         blur_trans = blur_transform.GaussianBlur(BLUR)
+        train_transform = transforms.Compose([blur_trans] + post_blur_transforms)
+    elif BLUR_MAX:
+        print(f"Using variable-blur in range: {BLUR}-{BLUR_MAX}.")
+        blur_trans = blur_transform.GaussianBlurRand(BLUR, BLUR_MAX)
         train_transform = transforms.Compose([blur_trans] + post_blur_transforms)
     else:
         print("Not using blur.")
