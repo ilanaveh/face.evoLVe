@@ -82,7 +82,7 @@ def main(args):
                              std = RGB_STD),
     ]
 
-    if BLUR:
+    if BLUR and not BLUR_MAX:
         print(f"Using blur {BLUR}.")
         blur_trans = blur_transform.GaussianBlur(BLUR)
         train_transform = transforms.Compose([blur_trans] + post_blur_transforms)
